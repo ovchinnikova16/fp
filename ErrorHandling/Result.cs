@@ -10,20 +10,23 @@ namespace ResultOfTask
 	}
 	public struct Result<T>
 	{
-		public Result(string error, T value = default(T))
-		{
-			Error = error;
-			Value = value;
-		}
 		public string Error { get; }
 		internal T Value { get; }
-		public T GetValueOrThrow()
+
+        public bool IsSuccess => Error == null;
+
+        public T GetValueOrThrow()
 		{
 			if (IsSuccess) return Value;
 			throw new InvalidOperationException($"No value. Only Error {Error}");
-		}
-		public bool IsSuccess => Error == null;
-	}
+        }
+
+        public Result(string error, T value = default(T))
+        {
+            Error = error;
+            Value = value;
+        }
+    }
 
 	public static class Result
 	{
@@ -58,21 +61,41 @@ namespace ResultOfTask
 			this Result<TInput> input,
 			Func<TInput, TOutput> continuation)
 		{
-			throw new NotImplementedException();
+		    if (!input.IsSuccess) return Fail<TOutput>(input.Error);
+
+		    return Of(() => continuation(input.Value));
 		}
 
 		public static Result<TOutput> Then<TInput, TOutput>(
 			this Result<TInput> input,
 			Func<TInput, Result<TOutput>> continuation)
 		{
-			throw new NotImplementedException();
-		}
+            if (!input.IsSuccess) return Fail<TOutput>(input.Error);
+
+            return continuation(input.Value);
+        }
 
 		public static Result<TInput> OnFail<TInput>(
 			this Result<TInput> input,
 			Action<string> handleError)
 		{
-			throw new NotImplementedException();
+		    if (!input.IsSuccess)
+		        handleError(input.Error);
+            return input;
 		}
-	}
+
+	    public static Result<T> ReplaceError<T>(
+	        this Result<T> input,
+	        Func<string, string> errorReplace)
+	    {
+	        if (input.IsSuccess) return input;
+
+	        return Fail<T>(errorReplace(input.Error));
+	    }
+
+	    public static Result<T> RefineError<T>(this Result<T> input, string prefix)
+	    {
+	        return input.ReplaceError(e => $"{prefix} {e}");
+	    }
+    }
 }
